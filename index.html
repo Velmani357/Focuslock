@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FocusLock 🔒</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #e3f2fd;
+      margin: 0;
+      padding: 40px;
+      text-align: center;
+      transition: background-color 0.3s ease;
+    }
+
+    h1 {
+      font-size: 36px;
+      color: #0d47a1;
+    }
+
+    p {
+      font-size: 18px;
+      color: #333;
+      margin-bottom: 30px;
+    }
+
+    input, select {
+      padding: 12px;
+      font-size: 16px;
+      margin: 10px;
+      width: 300px;
+      max-width: 90%;
+      border-radius: 8px;
+      border: 1px solid #90caf9;
+    }
+
+    button {
+      background-color: #1565c0;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      background-color: #0d47a1;
+    }
+
+    #status {
+      margin-top: 30px;
+      font-size: 20px;
+      font-weight: bold;
+      color: red;
+    }
+
+    #timer {
+      margin-top: 15px;
+      font-size: 18px;
+      color: #1b5e20;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>FocusLock 🔒</h1>
+  <p>Paste your study link and set a timer. If you leave or close the tab, we'll alert you and show distraction time.</p>
+
+  <input id="studyUrl" type="text" placeholder="Enter your study link (e.g., YouTube or Notion)">
+  <br>
+  <input id="studyMinutes" type="number" placeholder="Study time in minutes (e.g., 25)">
+  <br>
+  <button onclick="startFocus()">🎯 Start Focus Session</button>
+
+  <div id="timer"></div>
+  <div id="status"></div>
+  <audio id="alertSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
+
+  <script>
+    let studyWindow;
+    let checkInterval;
+    let distractionStart = null;
+    let distractedTime = 0;
+    let studyEndTime = null;
+    let countdownInterval;
+
+    function startFocus() {
+      const url = document.getElementById("studyUrl").value.trim();
+      const minutes = parseInt(document.getElementById("studyMinutes").value.trim());
+
+      if (!url || isNaN(minutes) || minutes <= 0) {
+        alert("Enter a valid study link and time.");
+        return;
+      }
+
+      studyWindow = window.open(url, "studyTab", "width=1000,height=600");
+      document.getElementById("status").innerText = "🔒 Focus started. Stay on your study tab.";
+      document.body.style.backgroundColor = "#e3f2fd";
+
+      distractionStart = null;
+      distractedTime = 0;
+      studyEndTime = Date.now() + minutes * 60 * 1000;
+
+      updateCountdown();
+      countdownInterval = setInterval(updateCountdown, 1000);
+
+      checkInterval = setInterval(() => {
+        if (studyWindow.closed) {
+          clearInterval(checkInterval);
+          clearInterval(countdownInterval);
+          showMessage(`❌ Study tab closed! Total distraction time: ${distractedTime} sec.`);
+          document.body.style.backgroundColor = "#ffcdd2";
+          document.getElementById("alertSound").play();
+          return;
+        }
+
+        // If this window is active → study tab is in background
+        if (document.hasFocus()) {
+          if (!distractionStart) {
+            distractionStart = Date.now();
+          } else {
+            const diff = Math.floor((Date.now() - distractionStart) / 1000);
+            document.getElementById("status").innerText = `⚠️ You were distracted for ${diff} sec!`;
+            document.body.style.backgroundColor = "#fff3e0";
+          }
+        } else {
+          if (distractionStart) {
+            const now = Date.now();
+            const diff = Math.floor((now - distractionStart) / 1000);
+            distractedTime += diff;
+            showMessage(`✅ You returned after ${diff} sec of distraction.`);
+            document.body.style.backgroundColor = "#e3f2fd";
+            document.getElementById("alertSound").play();
+            distractionStart = null;
+          }
+        }
+      }, 1000);
+    }
+
+    function updateCountdown() {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((studyEndTime - now) / 1000));
+      const minutes = Math.floor(remaining / 60);
+      const seconds = remaining % 60;
+      document.getElementById("timer").innerText = `🕒 Time left: ${minutes}m ${seconds}s`;
+
+      if (remaining <= 0) {
+        clearInterval(countdownInterval);
+        clearInterval(checkInterval);
+        showMessage(`✅ 🎉 Study session complete! Total distraction: ${distractedTime} sec.`);
+        document.getElementById("alertSound").play();
+        document.body.style.backgroundColor = "#c8e6c9";
+        if (!studyWindow.closed) {
+          studyWindow.close();
+        }
+      }
+    }
+
+    function showMessage(msg) {
+      document.getElementById("status").innerText = msg;
+    }
+  </script>
+
+</body>
+</html>
